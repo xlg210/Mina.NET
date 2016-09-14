@@ -11,6 +11,8 @@ namespace Mina.Transport.File
 {
     public class FileSession : AbstractIoSession
     {
+        public const string FieldRound = "FileSession.Round";
+
         public static readonly ITransportMetadata Metadata
             = new DefaultTransportMetadata("mina", "file", false, true, typeof(FileEndPoint));
 
@@ -21,7 +23,7 @@ namespace Mina.Transport.File
         public FileSession(FileConnector service, FileEndPoint endPoint)
             : base(service)
         {
-            Config = service.SessionConfig;
+            base.Config = service.SessionConfig;
             Processor = service;
             RemoteEndPoint = endPoint;
             FilterChain = new DefaultIoFilterChain(this);
@@ -31,6 +33,8 @@ namespace Mina.Transport.File
         ///     指示文件读取服务是否正在运行
         /// </summary>
         public bool Reading { get; private set; }
+
+        public new FileSessionConfig Config => (FileSessionConfig) base.Config;
 
         public override IoProcessor Processor { get; }
         public override IoFilterChain FilterChain { get; }
@@ -58,19 +62,26 @@ namespace Mina.Transport.File
         {
             Reading = false;
         }
+
         /// <summary>
-        /// 读取路径中的文件
+        ///     读取路径中的文件
         /// </summary>
         private void ReadPath()
         {
-            var endPoint = (FileEndPoint) RemoteEndPoint;
-            if (endPoint.PathType == PathType.Directory)
-                ReadDirectory(endPoint.Path);
-            else if (endPoint.PathType == PathType.File)
-                ReadSingleFile(endPoint.Path);
-            else
-                FilterChain.FireExceptionCaught(
-                    new FileNotFoundException($"Can not find file or directory {endPoint.Path}"));
+            while (Reading)
+            {
+                var round = GetAttribute(FieldRound, 0);
+                SetAttribute(FieldRound, ++round);
+                var endPoint = (FileEndPoint) RemoteEndPoint;
+                if (endPoint.PathType == PathType.Directory)
+                    ReadDirectory(endPoint.Path);
+                else if (endPoint.PathType == PathType.File)
+                    ReadSingleFile(endPoint.Path);
+                else
+                    FilterChain.FireExceptionCaught(
+                        new FileNotFoundException($"Can not find file or directory {endPoint.Path}"));
+                if (!Config.CycleRead) break;
+            }
         }
 
         /// <summary>
@@ -78,13 +89,18 @@ namespace Mina.Transport.File
         /// </summary>
         private void ReadSingleFile(string file)
         {
-            var cfg = (FileSessionConfig) Config;
             try
             {
                 using (fileStream = new FileStream(file, FileMode.OpenOrCreate, FileAccess.Read))
                 {
                     while (Reading & fileStream.CanRead)
                     {
+                        if (ReadSuspended)
+                        {
+                            //暂停读取
+                            Thread.Sleep(Math.Min(100, Config.ReadSpan));
+                            continue;
+                        }
                         var data = new byte[1024];
                         var begin = DateTime.Now;
                         var readBytes = fileStream.Read(data, 0, 1024);
@@ -98,7 +114,7 @@ namespace Mina.Transport.File
                             FilterChain.FireExceptionCaught(ex);
                         }
                         var used = DateTime.Now - begin;
-                        var sleep = cfg.ReadSpan > used.Milliseconds ? cfg.ReadSpan - used.Milliseconds : 0;
+                        var sleep = Config.ReadSpan > used.Milliseconds ? Config.ReadSpan - used.Milliseconds : 0;
                         Thread.Sleep(sleep);
                     }
                 }
@@ -114,7 +130,6 @@ namespace Mina.Transport.File
         /// </summary>
         private void ReadDirectory(string directory)
         {
-            var cfg = (FileSessionConfig) Config;
             var files = Directory.GetFiles(directory);
             try
             {
@@ -123,6 +138,12 @@ namespace Mina.Transport.File
                     {
                         while (Reading & fileStream.CanRead)
                         {
+                            if (ReadSuspended)
+                            {
+                                //暂停读取
+                                Thread.Sleep(Math.Min(100, Config.ReadSpan));
+                                continue;
+                            }
                             var data = new byte[1024];
                             var begin = DateTime.Now;
                             var readBytes = fileStream.Read(data, 0, 1024);
@@ -136,7 +157,7 @@ namespace Mina.Transport.File
                                 FilterChain.FireExceptionCaught(ex);
                             }
                             var used = DateTime.Now - begin;
-                            var sleep = cfg.ReadSpan > used.Milliseconds ? cfg.ReadSpan - used.Milliseconds : 0;
+                            var sleep = Config.ReadSpan > used.Milliseconds ? Config.ReadSpan - used.Milliseconds : 0;
                             Thread.Sleep(sleep);
                         }
                     }

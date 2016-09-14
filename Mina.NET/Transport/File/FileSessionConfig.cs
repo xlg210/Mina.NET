@@ -1,16 +1,18 @@
 ﻿using System;
+using System.ComponentModel;
+using System.IO;
 using Mina.Core.Session;
 
 namespace Mina.Transport.File
 {
     /// <summary>
-    /// 文件配置
+    ///     文件配置
     /// </summary>
     public class FileSessionConfig : IoSessionConfig
     {
         public FileSessionConfig()
         {
-            ReadSpan = 100;
+            ReadSpan = 1000;
             BytesPerRead = 1024;
             ReaderIdleTime = 10*60;
         }
@@ -24,6 +26,12 @@ namespace Mina.Transport.File
         ///     每次读取字节数
         /// </summary>
         public int BytesPerRead { get; set; }
+
+        /// <summary>
+        ///     循环读取
+        /// </summary>
+        public bool CycleRead { get; set; }
+       
 
         public int GetIdleTime(IdleStatus status)
         {

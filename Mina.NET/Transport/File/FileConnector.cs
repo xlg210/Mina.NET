@@ -9,7 +9,7 @@ using Mina.Core.Write;
 namespace Mina.Transport.File
 {
     /// <summary>
-    ///     文件连接(读取)器
+    ///     文件连接(读取)器,读取文件，无法对文件进行写入操作
     /// </summary>
     public class FileConnector : AbstractIoConnector, IoProcessor<FileSession>
     {
@@ -20,13 +20,15 @@ namespace Mina.Transport.File
         public FileConnector(IoSessionConfig sessionConfig) : base(sessionConfig)
         {
             idleStatusChecker = new IdleStatusChecker(() => ManagedSessions.Values);
-            ReadSpan = 10;
         }
 
-        /// <summary>
-        ///     读取间隔
-        /// </summary>
-        public int ReadSpan { get; set; }
+        public FileConnector() : base(new FileSessionConfig())
+        {
+            idleStatusChecker = new IdleStatusChecker(() => ManagedSessions.Values);
+        }
+
+
+        public new FileSessionConfig SessionConfig => (FileSessionConfig) base.SessionConfig;
 
         public override ITransportMetadata TransportMetadata
             => new DefaultTransportMetadata("mina", "file", false, true, typeof(FileEndPoint));
@@ -74,12 +76,12 @@ namespace Mina.Transport.File
 
         public void Write(IoSession session, IWriteRequest writeRequest)
         {
-            throw new NotImplementedException();
+            //Not Support
         }
 
         public void Flush(IoSession session)
         {
-            throw new NotImplementedException();
+            //Not Support
         }
 
         public void Remove(IoSession session)
@@ -89,7 +91,7 @@ namespace Mina.Transport.File
 
         public void UpdateTrafficControl(IoSession session)
         {
-            throw new NotImplementedException();
+            //Not Support
         }
 
         public void Add(FileSession session)
@@ -106,12 +108,12 @@ namespace Mina.Transport.File
 
         public void Write(FileSession session, IWriteRequest writeRequest)
         {
-            throw new NotImplementedException();
+            //Not Support
         }
 
         public void Flush(FileSession session)
         {
-            throw new NotImplementedException();
+            //Not Support
         }
 
         public void Remove(FileSession session)
@@ -126,7 +128,7 @@ namespace Mina.Transport.File
 
         public void UpdateTrafficControl(FileSession session)
         {
-            throw new NotImplementedException();
+            //Not Support
         }
 
         #endregion

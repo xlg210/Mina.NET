@@ -34,6 +34,11 @@ namespace Mina.Transport.File
         ///     路径类型
         /// </summary>
         public PathType PathType { get; set; }
+
+        public override string ToString()
+        {
+            return $"{nameof(Path)}: {Path}";
+        }
     }
 
     /// <summary>
